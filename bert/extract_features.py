@@ -282,12 +282,12 @@ def convert_examples_to_features(examples, seq_length, tokenizer):
     if ex_index < 5:
       tf.logging.info("*** Example ***")
       tf.logging.info("unique_id: %s" % (example.unique_id))
-      tf.logging.info("tokens: %s" % " ".join(
-          [tokenization.printable_text(x) for x in tokens]))
-      tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-      tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
+      tf.logging.info(("tokens: %s" % " ".join(
+          tokenization.printable_text(x) for x in tokens)))
+      tf.logging.info("input_ids: %s" % " ".join(str(x) for x in input_ids))
+      tf.logging.info("input_mask: %s" % " ".join(str(x) for x in input_mask))
       tf.logging.info(
-          "input_type_ids: %s" % " ".join([str(x) for x in input_type_ids]))
+          "input_type_ids: %s" % " ".join(str(x) for x in input_type_ids))
 
     features.append(
         InputFeatures(
@@ -319,8 +319,8 @@ def _truncate_seq_pair(tokens_a, tokens_b, max_length):
 def read_examples(input_file):
   """Read a list of `InputExample`s from an input file."""
   examples = []
-  unique_id = 0
   with tf.gfile.GFile(input_file, "r") as reader:
+    unique_id = 0
     while True:
       line = tokenization.convert_to_unicode(reader.readline())
       if not line:
@@ -362,10 +362,7 @@ def main(_):
   features = convert_examples_to_features(
       examples=examples, seq_length=FLAGS.max_seq_length, tokenizer=tokenizer)
 
-  unique_id_to_feature = {}
-  for feature in features:
-    unique_id_to_feature[feature.unique_id] = feature
-
+  unique_id_to_feature = {feature.unique_id: feature for feature in features}
   model_fn = model_fn_builder(
       bert_config=bert_config,
       init_checkpoint=FLAGS.init_checkpoint,

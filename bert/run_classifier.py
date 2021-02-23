@@ -198,10 +198,7 @@ class DataProcessor(object):
     """Reads a tab separated value file."""
     with tf.gfile.Open(input_file, "r") as f:
       reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
-      lines = []
-      for line in reader:
-        lines.append(line)
-      return lines
+      return [line for line in reader]
 
 
 class XnliProcessor(DataProcessor):
@@ -324,10 +321,7 @@ class MrpcProcessor(DataProcessor):
       guid = "%s-%s" % (set_type, i)
       text_a = tokenization.convert_to_unicode(line[3])
       text_b = tokenization.convert_to_unicode(line[4])
-      if set_type == "test":
-        label = "0"
-      else:
-        label = tokenization.convert_to_unicode(line[0])
+      label = "0" if set_type == "test" else tokenization.convert_to_unicode(line[0])
       examples.append(
           InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
     return examples
@@ -386,10 +380,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
         label_id=0,
         is_real_example=False)
 
-  label_map = {}
-  for (i, label) in enumerate(label_list):
-    label_map[label] = i
-
+  label_map = {label: i for (i, label) in enumerate(label_list)}
   tokens_a = tokenizer.tokenize(example.text_a)
   tokens_b = None
   if example.text_b:
@@ -460,20 +451,19 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   if ex_index < 5:
     tf.logging.info("*** Example ***")
     tf.logging.info("guid: %s" % (example.guid))
-    tf.logging.info("tokens: %s" % " ".join(
-        [tokenization.printable_text(x) for x in tokens]))
-    tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-    tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-    tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+    tf.logging.info(("tokens: %s" % " ".join(
+        tokenization.printable_text(x) for x in tokens)))
+    tf.logging.info("input_ids: %s" % " ".join(str(x) for x in input_ids))
+    tf.logging.info("input_mask: %s" % " ".join(str(x) for x in input_mask))
+    tf.logging.info("segment_ids: %s" % " ".join(str(x) for x in segment_ids))
     tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
 
-  feature = InputFeatures(
+  return InputFeatures(
       input_ids=input_ids,
       input_mask=input_mask,
       segment_ids=segment_ids,
       label_id=label_id,
       is_real_example=True)
-  return feature
 
 
 def file_based_convert_examples_to_features(
@@ -490,8 +480,7 @@ def file_based_convert_examples_to_features(
                                      max_seq_length, tokenizer)
 
     def create_int_feature(values):
-      f = tf.train.Feature(int64_list=tf.train.Int64List(value=list(values)))
-      return f
+      return tf.train.Feature(int64_list=tf.train.Int64List(value=list(values)))
 
     features = collections.OrderedDict()
     features["input_ids"] = create_int_feature(feature.input_ids)
@@ -909,7 +898,7 @@ def main(_):
       assert len(eval_examples) % FLAGS.eval_batch_size == 0
       eval_steps = int(len(eval_examples) // FLAGS.eval_batch_size)
 
-    eval_drop_remainder = True if FLAGS.use_tpu else False
+    eval_drop_remainder = bool(FLAGS.use_tpu)
     eval_input_fn = file_based_input_fn_builder(
         input_file=eval_file,
         seq_length=FLAGS.max_seq_length,
@@ -947,7 +936,7 @@ def main(_):
                     len(predict_examples) - num_actual_predict_examples)
     tf.logging.info("  Batch size = %d", FLAGS.predict_batch_size)
 
-    predict_drop_remainder = True if FLAGS.use_tpu else False
+    predict_drop_remainder = bool(FLAGS.use_tpu)
     predict_input_fn = file_based_input_fn_builder(
         input_file=predict_file,
         seq_length=FLAGS.max_seq_length,

@@ -187,9 +187,7 @@ class SquadExample(object):
     s += ", doc_tokens: [%s]" % (" ".join(self.doc_tokens))
     if self.start_position:
       s += ", start_position: %d" % (self.start_position)
-    if self.start_position:
       s += ", end_position: %d" % (self.end_position)
-    if self.start_position:
       s += ", is_impossible: %r" % (self.is_impossible)
     return s
 
@@ -230,9 +228,7 @@ def read_squad_examples(input_file, is_training):
     input_data = json.load(reader)["data"]
 
   def is_whitespace(c):
-    if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
-      return True
-    return False
+    return c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F
 
   examples = []
   for entry in input_data:
@@ -356,8 +352,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
     start_offset = 0
     while start_offset < len(all_doc_tokens):
       length = len(all_doc_tokens) - start_offset
-      if length > max_tokens_for_doc:
-        length = max_tokens_for_doc
+      length = min(length, max_tokens_for_doc)
       doc_spans.append(_DocSpan(start=start_offset, length=length))
       if start_offset + length == len(all_doc_tokens):
         break
@@ -412,8 +407,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         doc_start = doc_span.start
         doc_end = doc_span.start + doc_span.length - 1
         out_of_span = False
-        if not (tok_start_position >= doc_start and
-                tok_end_position <= doc_end):
+        if tok_start_position < doc_start or tok_end_position > doc_end:
           out_of_span = True
         if out_of_span:
           start_position = 0
@@ -432,18 +426,16 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         tf.logging.info("unique_id: %s" % (unique_id))
         tf.logging.info("example_index: %s" % (example_index))
         tf.logging.info("doc_span_index: %s" % (doc_span_index))
-        tf.logging.info("tokens: %s" % " ".join(
-            [tokenization.printable_text(x) for x in tokens]))
-        tf.logging.info("token_to_orig_map: %s" % " ".join(
-            ["%d:%d" % (x, y) for (x, y) in six.iteritems(token_to_orig_map)]))
-        tf.logging.info("token_is_max_context: %s" % " ".join([
-            "%d:%s" % (x, y) for (x, y) in six.iteritems(token_is_max_context)
-        ]))
-        tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-        tf.logging.info(
-            "input_mask: %s" % " ".join([str(x) for x in input_mask]))
-        tf.logging.info(
-            "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+        tf.logging.info(("tokens: %s" % " ".join(
+            tokenization.printable_text(x) for x in tokens)))
+        tf.logging.info(("token_to_orig_map: %s" % " ".join(
+            "%d:%d" % (x, y) for (x, y) in six.iteritems(token_to_orig_map))))
+        tf.logging.info(("token_is_max_context: %s" % " ".join(
+            "%d:%s" % (x, y)
+            for (x, y) in six.iteritems(token_is_max_context))))
+        tf.logging.info("input_ids: %s" % " ".join(str(x) for x in input_ids))
+        tf.logging.info("input_mask: %s" % " ".join(str(x) for x in input_mask))
+        tf.logging.info("segment_ids: %s" % " ".join(str(x) for x in segment_ids))
         if is_training and example.is_impossible:
           tf.logging.info("impossible example")
         if is_training and not example.is_impossible:
@@ -647,9 +639,8 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         one_hot_positions = tf.one_hot(
             positions, depth=seq_length, dtype=tf.float32)
         log_probs = tf.nn.log_softmax(logits, axis=-1)
-        loss = -tf.reduce_mean(
+        return -tf.reduce_mean(
             tf.reduce_sum(one_hot_positions * log_probs, axis=-1))
-        return loss
 
       start_positions = features["start_positions"]
       end_positions = features["end_positions"]
@@ -749,10 +740,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
   for feature in all_features:
     example_index_to_features[feature.example_index].append(feature)
 
-  unique_id_to_result = {}
-  for result in all_results:
-    unique_id_to_result[result.unique_id] = result
-
+  unique_id_to_result = {result.unique_id: result for result in all_results}
   _PrelimPrediction = collections.namedtuple(  # pylint: disable=invalid-name
       "PrelimPrediction",
       ["feature_index", "start_index", "end_index", "start_logit", "end_logit"])
@@ -852,11 +840,9 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
         if final_text in seen_predictions:
           continue
 
-        seen_predictions[final_text] = True
       else:
         final_text = ""
-        seen_predictions[final_text] = True
-
+      seen_predictions[final_text] = True
       nbest.append(
           _NbestPrediction(
               text=final_text,
@@ -864,12 +850,11 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
               end_logit=pred.end_logit))
 
     # if we didn't inlude the empty option in the n-best, inlcude it
-    if FLAGS.version_2_with_negative:
-      if "" not in seen_predictions:
-        nbest.append(
-            _NbestPrediction(
-                text="", start_logit=null_start_logit,
-                end_logit=null_end_logit))
+    if FLAGS.version_2_with_negative and "" not in seen_predictions:
+      nbest.append(
+          _NbestPrediction(
+              text="", start_logit=null_start_logit,
+              end_logit=null_end_logit))
     # In very rare edge cases we could have no valid predictions. So we
     # just create a nonce prediction in this case to avoid failure.
     if not nbest:
@@ -882,9 +867,8 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
     best_non_null_entry = None
     for entry in nbest:
       total_scores.append(entry.start_logit + entry.end_logit)
-      if not best_non_null_entry:
-        if entry.text:
-          best_non_null_entry = entry
+      if not best_non_null_entry and entry.text:
+        best_non_null_entry = entry
 
     probs = _compute_softmax(total_scores)
 
@@ -1049,10 +1033,7 @@ def _compute_softmax(scores):
     exp_scores.append(x)
     total_sum += x
 
-  probs = []
-  for score in exp_scores:
-    probs.append(score / total_sum)
-  return probs
+  return [score / total_sum for score in exp_scores]
 
 
 class FeatureWriter(object):
@@ -1069,9 +1050,8 @@ class FeatureWriter(object):
     self.num_features += 1
 
     def create_int_feature(values):
-      feature = tf.train.Feature(
+      return tf.train.Feature(
           int64_list=tf.train.Int64List(value=list(values)))
-      return feature
 
     features = collections.OrderedDict()
     features["unique_ids"] = create_int_feature([feature.unique_id])
@@ -1102,14 +1082,12 @@ def validate_flags_or_throw(bert_config):
   if not FLAGS.do_train and not FLAGS.do_predict:
     raise ValueError("At least one of `do_train` or `do_predict` must be True.")
 
-  if FLAGS.do_train:
-    if not FLAGS.train_file:
-      raise ValueError(
-          "If `do_train` is True, then `train_file` must be specified.")
-  if FLAGS.do_predict:
-    if not FLAGS.predict_file:
-      raise ValueError(
-          "If `do_predict` is True, then `predict_file` must be specified.")
+  if FLAGS.do_train and not FLAGS.train_file:
+    raise ValueError(
+        "If `do_train` is True, then `train_file` must be specified.")
+  if FLAGS.do_predict and not FLAGS.predict_file:
+    raise ValueError(
+        "If `do_predict` is True, then `predict_file` must be specified.")
 
   if FLAGS.max_seq_length > bert_config.max_position_embeddings:
     raise ValueError(
