@@ -84,10 +84,7 @@ def convert_examples_to_features(examples,label_list, max_seq_length,tokenizer):
     segment_ids：句子标记，此场景只有text_a,都为0；
     label_ids：文本标签对应的token，不是one_hot的形式；
     """
-    label_map = {}
-    for (i, label) in enumerate(label_list):
-        label_map[label] = i
-
+    label_map = {label: i for (i, label) in enumerate(label_list)}
     input_data = []
     for (ex_index, example) in enumerate(examples):
         tokens_a = tokenizer.tokenize(example.text_a)
@@ -122,10 +119,14 @@ def convert_examples_to_features(examples,label_list, max_seq_length,tokenizer):
         if ex_index < 3:
             tf.logging.info("*** Example ***")
             tf.logging.info("guid: %s" % (example.guid))
-            tf.logging.info("tokens: %s" % " ".join([tokenization.printable_text(x) for x in tokens]))
-            tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-            tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-            tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+            tf.logging.info(
+                "tokens: %s"
+                % " ".join(tokenization.printable_text(x) for x in tokens)
+            )
+
+            tf.logging.info("input_ids: %s" % " ".join(str(x) for x in input_ids))
+            tf.logging.info("input_mask: %s" % " ".join(str(x) for x in input_mask))
+            tf.logging.info("segment_ids: %s" % " ".join(str(x) for x in segment_ids))
             tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
 
         features = collections.OrderedDict()

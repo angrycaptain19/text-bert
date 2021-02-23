@@ -317,8 +317,7 @@ def gather_indexes(sequence_tensor, positions):
   flat_positions = tf.reshape(positions + flat_offsets, [-1])
   flat_sequence_tensor = tf.reshape(sequence_tensor,
                                     [batch_size * seq_length, width])
-  output_tensor = tf.gather(flat_sequence_tensor, flat_positions)
-  return output_tensor
+  return tf.gather(flat_sequence_tensor, flat_positions)
 
 
 def input_fn_builder(input_files,

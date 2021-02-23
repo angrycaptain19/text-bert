@@ -103,13 +103,12 @@ class BertModelTest(tf.test.TestCase):
           token_type_ids=token_type_ids,
           scope=self.scope)
 
-      outputs = {
+      return {
           "embedding_output": model.get_embedding_output(),
           "sequence_output": model.get_sequence_output(),
           "pooled_output": model.get_pooled_output(),
           "all_encoder_layers": model.get_all_encoder_layers(),
       }
-      return outputs
 
     def check_output(self, result):
       self.parent.assertAllEqual(
@@ -153,10 +152,7 @@ class BertModelTest(tf.test.TestCase):
     for dim in shape:
       total_dims *= dim
 
-    values = []
-    for _ in range(total_dims):
-      values.append(rng.randint(0, vocab_size - 1))
-
+    values = [rng.randint(0, vocab_size - 1) for _ in range(total_dims)]
     return tf.constant(value=values, dtype=tf.int32, shape=shape, name=name)
 
   def assert_all_tensors_reachable(self, sess, outputs):
@@ -187,8 +183,11 @@ class BertModelTest(tf.test.TestCase):
     unreachable = filtered_unreachable
 
     self.assertEqual(
-        len(unreachable), 0, "The following ops are unreachable: %s" %
-        (" ".join([x.name for x in unreachable])))
+        len(unreachable),
+        0,
+        ("The following ops are unreachable: %s" % " ".join(
+            x.name for x in unreachable)),
+    )
 
   @classmethod
   def get_unreachable_ops(cls, graph, outputs):
@@ -244,11 +243,8 @@ class BertModelTest(tf.test.TestCase):
 
     unreachable_ops = []
     for op in graph.get_operations():
-      is_unreachable = False
       all_names = [x.name for x in op.inputs] + [x.name for x in op.outputs]
-      for name in all_names:
-        if name not in seen_tensors:
-          is_unreachable = True
+      is_unreachable = any(name not in seen_tensors for name in all_names)
       if is_unreachable:
         unreachable_ops.append(op)
     return unreachable_ops

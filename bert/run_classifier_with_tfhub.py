@@ -249,7 +249,7 @@ def main(_):
       # the last batch.
       eval_steps = int(len(eval_examples) / FLAGS.eval_batch_size)
 
-    eval_drop_remainder = True if FLAGS.use_tpu else False
+    eval_drop_remainder = bool(FLAGS.use_tpu)
     eval_input_fn = run_classifier.input_fn_builder(
         features=eval_features,
         seq_length=FLAGS.max_seq_length,

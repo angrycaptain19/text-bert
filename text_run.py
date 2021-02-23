@@ -22,14 +22,13 @@ def evaluate(sess,dev_data):
 
 def feed_data(batch_ids,batch_mask,batch_segment,batch_label,keep_prob):
     '''构建text_model需要传入的数据'''
-    feed_dict = {
+    return {
         model.input_ids: np.array(batch_ids),
         model.input_mask: np.array(batch_mask),
         model.segment_ids: np.array(batch_segment),
         model.labels: np.array(batch_label),
         model.keep_prob:keep_prob
     }
-    return feed_dict
 
 
 def optimistic_restore(session, save_file):
